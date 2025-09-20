@@ -347,6 +347,9 @@
                 this.touches = [];
                 this.lastTouchDistance = 0;
                 this.isTouching = false;
+                this.touchStartTime = 0;
+                this.touchStartPos = null;
+                this.hasPerformedGesture = false;
                 
                 this.setupCanvas();
                 this.setupEventListeners();
@@ -754,16 +757,20 @@
                 
                 this.isTouching = true;
                 this.touches = Array.from(e.touches);
+                this.touchStartTime = Date.now();
+                this.hasPerformedGesture = false;
                 
                 if (this.touches.length === 1) {
-                    // Single touch - start panning
+                    // Single touch - potentially start panning or tap
                     const touch = this.touches[0];
-                    this.isDragging = true;
+                    this.isDragging = false; // Don't immediately set to dragging
                     this.lastMouseX = touch.clientX;
                     this.lastMouseY = touch.clientY;
+                    this.touchStartPos = { x: touch.clientX, y: touch.clientY };
                 } else if (this.touches.length === 2) {
                     // Two touches - prepare for pinch zoom
                     this.isDragging = false;
+                    this.hasPerformedGesture = true; // Multi-touch is always a gesture
                     const touch1 = this.touches[0];
                     const touch2 = this.touches[1];
                     this.lastTouchDistance = this.getTouchDistance(touch1, touch2);
@@ -777,21 +784,40 @@
                 
                 this.touches = Array.from(e.touches);
                 
-                if (this.touches.length === 1 && this.isDragging) {
-                    // Single touch panning
+                if (this.touches.length === 1) {
+                    // Single touch - check if we should start panning
                     const touch = this.touches[0];
-                    const deltaX = touch.clientX - this.lastMouseX;
-                    const deltaY = touch.clientY - this.lastMouseY;
                     
-                    this.panX += deltaX;
-                    this.panY += deltaY;
+                    // Calculate movement from initial touch position
+                    if (this.touchStartPos) {
+                        const moveDistance = this.getTouchDistance(
+                            { clientX: touch.clientX, clientY: touch.clientY },
+                            { clientX: this.touchStartPos.x, clientY: this.touchStartPos.y }
+                        );
+                        
+                        // If moved more than 10px, consider it a pan gesture
+                        if (moveDistance > 10) {
+                            this.isDragging = true;
+                            this.hasPerformedGesture = true;
+                        }
+                    }
                     
-                    this.lastMouseX = touch.clientX;
-                    this.lastMouseY = touch.clientY;
-                    
-                    this.redraw();
+                    if (this.isDragging) {
+                        // Single touch panning
+                        const deltaX = touch.clientX - this.lastMouseX;
+                        const deltaY = touch.clientY - this.lastMouseY;
+                        
+                        this.panX += deltaX;
+                        this.panY += deltaY;
+                        
+                        this.lastMouseX = touch.clientX;
+                        this.lastMouseY = touch.clientY;
+                        
+                        this.redraw();
+                    }
                 } else if (this.touches.length === 2) {
                     // Pinch zoom
+                    this.hasPerformedGesture = true;
                     const touch1 = this.touches[0];
                     const touch2 = this.touches[1];
                     const currentDistance = this.getTouchDistance(touch1, touch2);
@@ -826,17 +852,34 @@
                 e.preventDefault();
                 
                 const remainingTouches = Array.from(e.touches);
+                const touchEndTime = Date.now();
                 
                 if (this.touches.length === 1 && remainingTouches.length === 0) {
-                    // Single touch ended - check if it was a tap for dot placement
+                    // Single touch ended - check if it was a genuine tap
                     const touch = this.touches[0];
+                    const touchDuration = touchEndTime - this.touchStartTime;
                     
-                    // Only place dot if we weren't dragging much (detect tap vs drag)
-                    if (!this.isDragging || this.getTouchDistance(
-                        { clientX: touch.clientX, clientY: touch.clientY },
-                        { clientX: this.lastMouseX, clientY: this.lastMouseY }
-                    ) < 15) {
-                        // Simulate a click for dot placement
+                    // Calculate total movement from start position
+                    let totalMovement = 0;
+                    if (this.touchStartPos) {
+                        totalMovement = this.getTouchDistance(
+                            { clientX: touch.clientX, clientY: touch.clientY },
+                            { clientX: this.touchStartPos.x, clientY: this.touchStartPos.y }
+                        );
+                    }
+                    
+                    // Very strict tap detection:
+                    // 1. No gesture was performed (no panning/zooming)
+                    // 2. Touch duration is short (less than 300ms)
+                    // 3. Total movement is minimal (less than 8px)
+                    // 4. Was not in dragging mode
+                    const isTap = !this.hasPerformedGesture && 
+                                  touchDuration < 300 && 
+                                  totalMovement < 8 && 
+                                  !this.isDragging;
+                    
+                    if (isTap) {
+                        // Only place dot for genuine taps
                         const syntheticEvent = {
                             clientX: touch.clientX,
                             clientY: touch.clientY
@@ -845,9 +888,12 @@
                     }
                 }
                 
+                // Reset touch state
                 this.isTouching = remainingTouches.length > 0;
                 this.isDragging = false;
                 this.touches = remainingTouches;
+                this.touchStartPos = null;
+                this.hasPerformedGesture = false;
                 
                 if (remainingTouches.length === 0) {
                     this.lastTouchDistance = 0;
