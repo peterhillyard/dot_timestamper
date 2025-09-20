@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Dot Clicker</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .main-content {
+            display: flex;
+            gap: 20px;
+        }
+
+        .viewer-section {
+            flex: 1;
+        }
+
+        .coordinates-section {
+            width: 300px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 15px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .coordinates-section h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 5px;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .file-input {
+            margin-bottom: 10px;
+        }
+
+        .info {
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .viewer-container {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            background-color: #fff;
+            cursor: grab;
+        }
+
+        .viewer-container:active {
+            cursor: grabbing;
+        }
+
+        .viewer-container.no-image {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 18px;
+        }
+
+        #imageCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .zoom-info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+        }
+
+        .reset-btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        .reset-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .coordinate-item {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            position: relative;
+        }
+
+        .coordinate-item:hover {
+            background-color: #e9ecef;
+        }
+
+        .coordinate-item .dot-index {
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 5px;
+        }
+
+        .coordinate-item .coordinates {
+            color: #333;
+        }
+
+        .coordinate-item .timestamp {
+            color: #666;
+            font-size: 10px;
+            margin-top: 5px;
+        }
+
+        .coordinate-item.highlighted {
+            background-color: #fff3cd;
+            border-color: #ffc107;
+            box-shadow: 0 0 8px rgba(255, 193, 7, 0.5);
+        }
+
+        .coordinate-item .delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .coordinate-item .delete-btn:hover {
+            background: #c82333;
+        }
+
+        .clear-dots-btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        .clear-dots-btn:hover {
+            background-color: #c82333;
+        }
+
+        .save-btn {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        .save-btn:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Interactive Dot Clicker</h1>
+        
+        <div class="controls">
+            <div class="file-input">
+                <label for="imageInput">Select an image:</label>
+                <input type="file" id="imageInput" accept="image/*">
+                <button class="reset-btn" id="resetBtn">Reset View</button>
+                <button class="clear-dots-btn" id="clearDotsBtn">Clear Dots</button>
+                <button class="save-btn" id="saveBtn">Save Data</button>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label for="assetIdsInput">Asset IDs:</label>
+                <textarea id="assetIdsInput" placeholder="Enter asset IDs, one per line or comma-separated..." 
+                         style="width: 100%; height: 60px; padding: 5px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; resize: vertical;"></textarea>
+            </div>
+            <div class="info">
+                <strong>Controls:</strong> Left-click and drag to pan • Mouse wheel to zoom • Right-click on image to place dots • Reset button to fit image to view
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="viewer-section">
+                <div class="viewer-container no-image" id="viewerContainer">
+                    <canvas id="imageCanvas"></canvas>
+                    <div class="zoom-info" id="zoomInfo">Zoom: 100%</div>
+                    <div id="placeholder">Select an image to start viewing</div>
+                </div>
+            </div>
+            
+            <div class="coordinates-section">
+                <h3>Dot Coordinates</h3>
+                <div id="coordinatesList">
+                    <p style="color: #999; font-style: italic;">Right-click on the image to place dots</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class ImageViewer {
+            constructor() {
+                this.canvas = document.getElementById('imageCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.container = document.getElementById('viewerContainer');
+                this.zoomInfo = document.getElementById('zoomInfo');
+                this.placeholder = document.getElementById('placeholder');
+                this.coordinatesList = document.getElementById('coordinatesList');
+                
+                this.image = null;
+                this.scale = 1;
+                this.panX = 0;
+                this.panY = 0;
+                this.isDragging = false;
+                this.lastMouseX = 0;
+                this.lastMouseY = 0;
+                
+                this.dots = []; // Array to store dot coordinates
+                this.dotRadius = 4;
+                this.dotColor = '#ff0000';
+                this.highlightedDotColor = '#ffaa00';
+                this.nextDotId = 1;
+                this.hoveredDotId = null;
+                
+                this.minScale = 0.1;
+                this.maxScale = 10;
+                
+                this.setupCanvas();
+                this.setupEventListeners();
+            }
+            
+            setupCanvas() {
+                // Set canvas size to match container
+                this.resizeCanvas();
+                window.addEventListener('resize', () => this.resizeCanvas());
+            }
+            
+            resizeCanvas() {
+                const rect = this.container.getBoundingClientRect();
+                this.canvas.width = rect.width;
+                this.canvas.height = rect.height;
+                this.redraw();
+            }
+            
+            setupEventListeners() {
+                // File input
+                document.getElementById('imageInput').addEventListener('change', (e) => {
+                    this.loadImage(e.target.files[0]);
+                });
+                
+                // Reset button
+                document.getElementById('resetBtn').addEventListener('click', () => {
+                    this.resetView();
+                });
+                
+                // Clear dots button
+                document.getElementById('clearDotsBtn').addEventListener('click', () => {
+                    this.clearDots();
+                });
+                
+                // Save button
+                document.getElementById('saveBtn').addEventListener('click', () => {
+                    this.saveData();
+                });
+                
+                // Mouse events for panning
+                this.canvas.addEventListener('mousedown', (e) => {
+                    if (e.button === 0) { // Left mouse button for panning
+                        this.startDrag(e);
+                    }
+                });
+                this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+                this.canvas.addEventListener('mouseup', () => this.endDrag());
+                this.canvas.addEventListener('mouseleave', () => {
+                    this.endDrag();
+                    this.clearDotHighlight();
+                });
+                
+                // Right-click for dot placement
+                this.canvas.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    this.placeDot(e);
+                });
+                
+                // Mouse wheel for zooming
+                this.canvas.addEventListener('wheel', (e) => this.zoom(e));
+            }
+            
+            loadImage(file) {
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        this.image = img;
+                        this.resetView();
+                        this.showCanvas();
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+            
+            showCanvas() {
+                this.container.classList.remove('no-image');
+                this.placeholder.style.display = 'none';
+                this.canvas.style.display = 'block';
+                this.zoomInfo.style.display = 'block';
+            }
+            
+            resetView() {
+                if (!this.image) return;
+                
+                // Calculate scale to fit image in canvas
+                const scaleX = this.canvas.width / this.image.width;
+                const scaleY = this.canvas.height / this.image.height;
+                this.scale = Math.min(scaleX, scaleY, 1); // Don't scale up beyond 100%
+                
+                // Center the image
+                this.panX = (this.canvas.width - this.image.width * this.scale) / 2;
+                this.panY = (this.canvas.height - this.image.height * this.scale) / 2;
+                
+                this.redraw();
+            }
+            
+            clearDots() {
+                this.dots = [];
+                this.nextDotId = 1;
+                this.updateCoordinatesList();
+                this.redraw();
+            }
+            
+            saveData() {
+                // Get asset IDs from textarea
+                const assetIdsText = document.getElementById('assetIdsInput').value.trim();
+                let assetIds = [];
+                
+                if (assetIdsText) {
+                    // Split by newlines and commas, then clean up
+                    assetIds = assetIdsText
+                        .split(/[\n,]+/)
+                        .map(id => id.trim())
+                        .filter(id => id.length > 0);
+                }
+                
+                // Prepare data object
+                const data = {
+                    assetIds: assetIds,
+                    dots: this.dots.map(dot => ({
+                        timestamp: dot.timestamp,
+                        coordinate_pixels: [dot.imageX, dot.imageY]
+                    })),
+                };
+                
+                // Create and download JSON file
+                const jsonString = JSON.stringify(data, null, 2);
+                const blob = new Blob([jsonString], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `image-data-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+            
+            handleMouseMove(e) {
+                this.drag(e); // Handle dragging
+                
+                if (!this.image || this.isDragging) return;
+                
+                // Check if mouse is over a dot
+                const rect = this.canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                let hoveredDot = null;
+                for (let dot of this.dots) {
+                    const screenX = dot.imageX * this.scale + this.panX;
+                    const screenY = dot.imageY * this.scale + this.panY;
+                    const distance = Math.sqrt(Math.pow(mouseX - screenX, 2) + Math.pow(mouseY - screenY, 2));
+                    
+                    if (distance <= this.dotRadius + 5) { // 5px tolerance
+                        hoveredDot = dot;
+                        break;
+                    }
+                }
+                
+                if (hoveredDot && hoveredDot.id !== this.hoveredDotId) {
+                    this.hoveredDotId = hoveredDot.id;
+                    this.highlightTile(hoveredDot.id);
+                    this.redraw();
+                } else if (!hoveredDot && this.hoveredDotId) {
+                    this.clearDotHighlight();
+                }
+            }
+            
+            highlightTile(dotId) {
+                // Remove existing highlights
+                document.querySelectorAll('.coordinate-item.highlighted').forEach(item => {
+                    item.classList.remove('highlighted');
+                });
+                
+                // Highlight the corresponding tile
+                const tile = document.querySelector(`[data-dot-id="${dotId}"]`);
+                if (tile) {
+                    tile.classList.add('highlighted');
+                }
+            }
+            
+            clearDotHighlight() {
+                this.hoveredDotId = null;
+                document.querySelectorAll('.coordinate-item.highlighted').forEach(item => {
+                    item.classList.remove('highlighted');
+                });
+                this.redraw();
+            }
+            
+            highlightDot(dotId) {
+                this.hoveredDotId = dotId;
+                this.redraw();
+            }
+            
+            placeDot(e) {
+                if (!this.image) return;
+                
+                const rect = this.canvas.getBoundingClientRect();
+                const canvasX = e.clientX - rect.left;
+                const canvasY = e.clientY - rect.top;
+                
+                // Convert canvas coordinates to image coordinates
+                const imageX = (canvasX - this.panX) / this.scale;
+                const imageY = (canvasY - this.panY) / this.scale;
+                
+                // Check if the click is within the image bounds
+                if (imageX >= 0 && imageX < this.image.width && imageY >= 0 && imageY < this.image.height) {
+                    const dot = {
+                        id: this.nextDotId++,
+                        imageX: imageX,
+                        imageY: imageY,
+                        canvasX: canvasX,
+                        canvasY: canvasY,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    this.dots.push(dot);
+                    this.updateCoordinatesList();
+                    this.redraw();
+                }
+            }
+            
+            deleteDot(dotId) {
+                this.dots = this.dots.filter(dot => dot.id !== dotId);
+                this.updateCoordinatesList();
+                this.redraw();
+            }
+            
+            updateCoordinatesList() {
+                if (this.dots.length === 0) {
+                    this.coordinatesList.innerHTML = '<p style="color: #999; font-style: italic;">Right-click on the image to place dots</p>';
+                    return;
+                }
+                
+                let html = '';
+                this.dots.forEach(dot => {
+                    html += `
+                        <div class="coordinate-item" data-dot-id="${dot.id}" 
+                             onmouseenter="viewer.highlightDot(${dot.id})" 
+                             onmouseleave="viewer.clearDotHighlight()">
+                            <button class="delete-btn" onclick="viewer.deleteDot(${dot.id})">×</button>
+                            <div class="coordinates">X: ${dot.imageX}, Y: ${dot.imageY}</div>
+                            <div class="timestamp">${dot.timestamp}</div>
+                        </div>
+                    `;
+                });
+                
+                this.coordinatesList.innerHTML = html;
+            }
+            
+            startDrag(e) {
+                if (!this.image) return;
+                
+                this.isDragging = true;
+                this.lastMouseX = e.clientX;
+                this.lastMouseY = e.clientY;
+                this.container.style.cursor = 'grabbing';
+            }
+            
+            drag(e) {
+                if (!this.isDragging || !this.image) return;
+                
+                const deltaX = e.clientX - this.lastMouseX;
+                const deltaY = e.clientY - this.lastMouseY;
+                
+                this.panX += deltaX;
+                this.panY += deltaY;
+                
+                this.lastMouseX = e.clientX;
+                this.lastMouseY = e.clientY;
+                
+                this.redraw();
+            }
+            
+            endDrag() {
+                this.isDragging = false;
+                this.container.style.cursor = 'grab';
+            }
+            
+            zoom(e) {
+                if (!this.image) return;
+                
+                e.preventDefault();
+                
+                // Get mouse position relative to canvas
+                const rect = this.canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                // Calculate zoom
+                const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+                const newScale = Math.max(this.minScale, Math.min(this.maxScale, this.scale * zoomFactor));
+                
+                if (newScale !== this.scale) {
+                    // Zoom towards mouse position
+                    const scaleChange = newScale / this.scale;
+                    this.panX = mouseX - (mouseX - this.panX) * scaleChange;
+                    this.panY = mouseY - (mouseY - this.panY) * scaleChange;
+                    this.scale = newScale;
+                    
+                    this.redraw();
+                }
+            }
+            
+            redraw() {
+                if (!this.image) return;
+                
+                // Clear canvas
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Draw image
+                this.ctx.save();
+                this.ctx.translate(this.panX, this.panY);
+                this.ctx.scale(this.scale, this.scale);
+                this.ctx.drawImage(this.image, 0, 0);
+                this.ctx.restore();
+                
+                // Draw dots
+                this.ctx.save();
+                this.dots.forEach(dot => {
+                    const screenX = dot.imageX * this.scale + this.panX;
+                    const screenY = dot.imageY * this.scale + this.panY;
+                    
+                    // Draw dot with highlight if hovered
+                    this.ctx.beginPath();
+                    this.ctx.arc(screenX, screenY, this.dotRadius, 0, 2 * Math.PI);
+                    this.ctx.fillStyle = dot.id === this.hoveredDotId ? this.highlightedDotColor : this.dotColor;
+                    this.ctx.fill();
+                    this.ctx.strokeStyle = '#ffffff';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.stroke();
+                });
+                this.ctx.restore();
+                
+                // Update zoom info
+                this.zoomInfo.textContent = `Zoom: ${Math.round(this.scale * 100)}%`;
+            }
+        }
+        
+        // Initialize the viewer when the page loads
+        let viewer; // Global reference for dot deletion
+        document.addEventListener('DOMContentLoaded', () => {
+            viewer = new ImageViewer();
+        });
+    </script>
+</body>
+</html>
