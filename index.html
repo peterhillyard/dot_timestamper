@@ -263,6 +263,22 @@
         #imageCanvas {
             touch-action: none;
         }
+        
+        /* Version display */
+        .version-display {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0.7;
+        }
     </style>
 </head>
 <body>
@@ -309,6 +325,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Version display -->
+    <div class="version-display">v1.0.0</div>
 
     <script>
         class ImageViewer {
@@ -674,8 +693,11 @@
                     this.updateElapsedTimeDisplay();
                 }
                 
+                // Sort dots by timestamp in descending order (most recent first)
+                const sortedDots = [...this.dots].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                
                 let html = '';
-                this.dots.forEach(dot => {
+                sortedDots.forEach(dot => {
                     html += `
                         <div class="coordinate-item" data-dot-id="${dot.id}" 
                              onmouseenter="viewer.highlightDot(${dot.id})" 
