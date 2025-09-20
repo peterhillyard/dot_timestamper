@@ -287,8 +287,8 @@
                 <span class="desktop-controls">Left-click and drag to pan • Mouse wheel to zoom • Right-click on image to place dots • Reset button to fit image to view</span>
                 <span class="mobile-controls" style="display: none;">Single finger drag to pan • Pinch to zoom • Tap on image to place dots • Reset button to fit image to view</span>
             </div>
-            <div class="elapsed-time-display" id="elapsedTimeDisplay" style="margin-top: 10px; padding: 10px; background-color: #e3f2fd; border-radius: 4px; border-left: 4px solid #2196f3; font-weight: bold; display: none;">
-                <span style="color: #1976d2;">⏱️ Time since last dot:</span> <span id="elapsedTimeValue" style="color: #0d47a1;">--</span>
+            <div class="elapsed-time-display" id="elapsedTimeDisplay" style="margin-top: 10px; padding: 10px; background-color: #e3f2fd; border-radius: 4px; border-left: 4px solid #2196f3; font-weight: bold;">
+                <span style="color: #1976d2;">⏱️ Time since last dot:</span> <span id="elapsedTimeValue" style="color: #0d47a1;">No dots have been added</span>
             </div>
         </div>
 
@@ -353,6 +353,9 @@
                 
                 this.setupCanvas();
                 this.setupEventListeners();
+                
+                // Initialize the elapsed time display
+                this.updateElapsedTimeDisplay();
                 
                 // Cleanup timer when page is unloaded
                 window.addEventListener('beforeunload', () => {
@@ -466,7 +469,7 @@
                 this.nextDotId = 1;
                 this.lastDotTime = null;
                 this.stopTimer();
-                this.hideElapsedTimeDisplay();
+                this.updateElapsedTimeDisplay(); // This will show "No dots have been added"
                 this.updateCoordinatesList();
                 this.redraw();
             }
@@ -487,7 +490,7 @@
             
             updateElapsedTimeDisplay() {
                 if (!this.lastDotTime) {
-                    this.hideElapsedTimeDisplay();
+                    this.elapsedTimeValue.textContent = 'No dots have been added';
                     return;
                 }
                 
@@ -496,7 +499,6 @@
                 const elapsedSeconds = Math.floor((now - lastDot) / 1000);
                 
                 this.elapsedTimeValue.textContent = this.formatElapsedTime(elapsedSeconds);
-                this.showElapsedTimeDisplay();
             }
             
             formatElapsedTime(seconds) {
@@ -512,14 +514,6 @@
                     const remainingSeconds = seconds % 60;
                     return `${hours}h ${minutes}m ${remainingSeconds}s`;
                 }
-            }
-            
-            showElapsedTimeDisplay() {
-                this.elapsedTimeDisplay.style.display = 'block';
-            }
-            
-            hideElapsedTimeDisplay() {
-                this.elapsedTimeDisplay.style.display = 'none';
             }
             
             saveData() {
@@ -660,7 +654,7 @@
                 } else {
                     this.lastDotTime = null;
                     this.stopTimer();
-                    this.hideElapsedTimeDisplay();
+                    this.updateElapsedTimeDisplay(); // This will show "No dots have been added"
                 }
                 
                 this.updateCoordinatesList();
