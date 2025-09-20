@@ -223,6 +223,9 @@
             <div class="info">
                 <strong>Controls:</strong> Left-click and drag to pan • Mouse wheel to zoom • Right-click on image to place dots • Reset button to fit image to view
             </div>
+            <div class="elapsed-time-display" id="elapsedTimeDisplay" style="margin-top: 10px; padding: 10px; background-color: #e3f2fd; border-radius: 4px; border-left: 4px solid #2196f3; font-weight: bold; display: none;">
+                <span style="color: #1976d2;">⏱️ Time since last dot:</span> <span id="elapsedTimeValue" style="color: #0d47a1;">--</span>
+            </div>
         </div>
 
         <div class="main-content">
@@ -252,6 +255,8 @@
                 this.zoomInfo = document.getElementById('zoomInfo');
                 this.placeholder = document.getElementById('placeholder');
                 this.coordinatesList = document.getElementById('coordinatesList');
+                this.elapsedTimeDisplay = document.getElementById('elapsedTimeDisplay');
+                this.elapsedTimeValue = document.getElementById('elapsedTimeValue');
                 
                 this.image = null;
                 this.scale = 1;
@@ -268,11 +273,19 @@
                 this.nextDotId = 1;
                 this.hoveredDotId = null;
                 
+                this.lastDotTime = null;
+                this.timerInterval = null;
+                
                 this.minScale = 0.1;
                 this.maxScale = 10;
                 
                 this.setupCanvas();
                 this.setupEventListeners();
+                
+                // Cleanup timer when page is unloaded
+                window.addEventListener('beforeunload', () => {
+                    this.stopTimer();
+                });
             }
             
             setupCanvas() {
@@ -373,8 +386,62 @@
             clearDots() {
                 this.dots = [];
                 this.nextDotId = 1;
+                this.lastDotTime = null;
+                this.stopTimer();
+                this.hideElapsedTimeDisplay();
                 this.updateCoordinatesList();
                 this.redraw();
+            }
+            
+            startTimer() {
+                this.stopTimer(); // Clear any existing timer
+                this.timerInterval = setInterval(() => {
+                    this.updateElapsedTimeDisplay();
+                }, 1000);
+            }
+            
+            stopTimer() {
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                    this.timerInterval = null;
+                }
+            }
+            
+            updateElapsedTimeDisplay() {
+                if (!this.lastDotTime) {
+                    this.hideElapsedTimeDisplay();
+                    return;
+                }
+                
+                const now = new Date();
+                const lastDot = new Date(this.lastDotTime);
+                const elapsedSeconds = Math.floor((now - lastDot) / 1000);
+                
+                this.elapsedTimeValue.textContent = this.formatElapsedTime(elapsedSeconds);
+                this.showElapsedTimeDisplay();
+            }
+            
+            formatElapsedTime(seconds) {
+                if (seconds < 60) {
+                    return `${seconds} second${seconds !== 1 ? 's' : ''}`;
+                } else if (seconds < 3600) {
+                    const minutes = Math.floor(seconds / 60);
+                    const remainingSeconds = seconds % 60;
+                    return `${minutes}m ${remainingSeconds}s`;
+                } else {
+                    const hours = Math.floor(seconds / 3600);
+                    const minutes = Math.floor((seconds % 3600) / 60);
+                    const remainingSeconds = seconds % 60;
+                    return `${hours}h ${minutes}m ${remainingSeconds}s`;
+                }
+            }
+            
+            showElapsedTimeDisplay() {
+                this.elapsedTimeDisplay.style.display = 'block';
+            }
+            
+            hideElapsedTimeDisplay() {
+                this.elapsedTimeDisplay.style.display = 'none';
             }
             
             saveData() {
@@ -483,23 +550,41 @@
                 
                 // Check if the click is within the image bounds
                 if (imageX >= 0 && imageX < this.image.width && imageY >= 0 && imageY < this.image.height) {
+                    const timestamp = new Date().toISOString();
                     const dot = {
                         id: this.nextDotId++,
                         imageX: imageX,
                         imageY: imageY,
                         canvasX: canvasX,
                         canvasY: canvasY,
-                        timestamp: new Date().toISOString()
+                        timestamp: timestamp
                     };
                     
                     this.dots.push(dot);
+                    this.lastDotTime = timestamp;
                     this.updateCoordinatesList();
                     this.redraw();
+                    
+                    // Start or restart the timer
+                    this.startTimer();
+                    this.updateElapsedTimeDisplay();
                 }
             }
             
             deleteDot(dotId) {
                 this.dots = this.dots.filter(dot => dot.id !== dotId);
+                
+                // Update lastDotTime to the most recent remaining dot, or null if no dots
+                if (this.dots.length > 0) {
+                    this.lastDotTime = this.dots[this.dots.length - 1].timestamp;
+                    this.startTimer();
+                    this.updateElapsedTimeDisplay();
+                } else {
+                    this.lastDotTime = null;
+                    this.stopTimer();
+                    this.hideElapsedTimeDisplay();
+                }
+                
                 this.updateCoordinatesList();
                 this.redraw();
             }
@@ -508,6 +593,13 @@
                 if (this.dots.length === 0) {
                     this.coordinatesList.innerHTML = '<p style="color: #999; font-style: italic;">Right-click on the image to place dots</p>';
                     return;
+                }
+                
+                // Update last dot time if we have dots but no tracked time
+                if (!this.lastDotTime && this.dots.length > 0) {
+                    this.lastDotTime = this.dots[this.dots.length - 1].timestamp;
+                    this.startTimer();
+                    this.updateElapsedTimeDisplay();
                 }
                 
                 let html = '';
