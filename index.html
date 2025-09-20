@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>Interactive Dot Clicker</title>
     <style>
         body {
@@ -201,6 +201,68 @@
         .save-btn:hover {
             background-color: #218838;
         }
+        
+        /* Mobile-specific improvements */
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .coordinates-section {
+                width: 100%;
+                max-height: 300px;
+                order: 2;
+            }
+            
+            .viewer-section {
+                order: 1;
+            }
+            
+            .viewer-container {
+                height: 400px;
+            }
+            
+            body {
+                padding: 10px;
+            }
+            
+            .container {
+                max-width: 100%;
+            }
+            
+            .controls {
+                padding: 10px;
+            }
+            
+            .desktop-controls {
+                display: none;
+            }
+            
+            .mobile-controls {
+                display: inline !important;
+            }
+        }
+        
+        /* Hide mobile controls on desktop */
+        @media (min-width: 769px) {
+            .mobile-controls {
+                display: none !important;
+            }
+        }
+        
+        /* Prevent text selection and default touch behaviors on canvas */
+        .viewer-container {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        #imageCanvas {
+            touch-action: none;
+        }
     </style>
 </head>
 <body>
@@ -221,7 +283,9 @@
                          style="width: 100%; height: 60px; padding: 5px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; resize: vertical;"></textarea>
             </div>
             <div class="info">
-                <strong>Controls:</strong> Left-click and drag to pan • Mouse wheel to zoom • Right-click on image to place dots • Reset button to fit image to view
+                <strong>Controls:</strong> 
+                <span class="desktop-controls">Left-click and drag to pan • Mouse wheel to zoom • Right-click on image to place dots • Reset button to fit image to view</span>
+                <span class="mobile-controls" style="display: none;">Single finger drag to pan • Pinch to zoom • Tap on image to place dots • Reset button to fit image to view</span>
             </div>
             <div class="elapsed-time-display" id="elapsedTimeDisplay" style="margin-top: 10px; padding: 10px; background-color: #e3f2fd; border-radius: 4px; border-left: 4px solid #2196f3; font-weight: bold; display: none;">
                 <span style="color: #1976d2;">⏱️ Time since last dot:</span> <span id="elapsedTimeValue" style="color: #0d47a1;">--</span>
@@ -278,6 +342,11 @@
                 
                 this.minScale = 0.1;
                 this.maxScale = 10;
+                
+                // Touch handling properties
+                this.touches = [];
+                this.lastTouchDistance = 0;
+                this.isTouching = false;
                 
                 this.setupCanvas();
                 this.setupEventListeners();
@@ -343,6 +412,12 @@
                 
                 // Mouse wheel for zooming
                 this.canvas.addEventListener('wheel', (e) => this.zoom(e));
+                
+                // Touch events for mobile support
+                this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+                this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+                this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+                this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e));
             }
             
             loadImage(file) {
@@ -670,6 +745,119 @@
                     
                     this.redraw();
                 }
+            }
+            
+            handleTouchStart(e) {
+                e.preventDefault();
+                
+                if (!this.image) return;
+                
+                this.isTouching = true;
+                this.touches = Array.from(e.touches);
+                
+                if (this.touches.length === 1) {
+                    // Single touch - start panning
+                    const touch = this.touches[0];
+                    this.isDragging = true;
+                    this.lastMouseX = touch.clientX;
+                    this.lastMouseY = touch.clientY;
+                } else if (this.touches.length === 2) {
+                    // Two touches - prepare for pinch zoom
+                    this.isDragging = false;
+                    const touch1 = this.touches[0];
+                    const touch2 = this.touches[1];
+                    this.lastTouchDistance = this.getTouchDistance(touch1, touch2);
+                }
+            }
+            
+            handleTouchMove(e) {
+                e.preventDefault();
+                
+                if (!this.image || !this.isTouching) return;
+                
+                this.touches = Array.from(e.touches);
+                
+                if (this.touches.length === 1 && this.isDragging) {
+                    // Single touch panning
+                    const touch = this.touches[0];
+                    const deltaX = touch.clientX - this.lastMouseX;
+                    const deltaY = touch.clientY - this.lastMouseY;
+                    
+                    this.panX += deltaX;
+                    this.panY += deltaY;
+                    
+                    this.lastMouseX = touch.clientX;
+                    this.lastMouseY = touch.clientY;
+                    
+                    this.redraw();
+                } else if (this.touches.length === 2) {
+                    // Pinch zoom
+                    const touch1 = this.touches[0];
+                    const touch2 = this.touches[1];
+                    const currentDistance = this.getTouchDistance(touch1, touch2);
+                    
+                    if (this.lastTouchDistance > 0) {
+                        const rect = this.canvas.getBoundingClientRect();
+                        
+                        // Get center point between the two touches
+                        const centerX = (touch1.clientX + touch2.clientX) / 2 - rect.left;
+                        const centerY = (touch1.clientY + touch2.clientY) / 2 - rect.top;
+                        
+                        // Calculate zoom factor based on distance change
+                        const zoomFactor = currentDistance / this.lastTouchDistance;
+                        const newScale = Math.max(this.minScale, Math.min(this.maxScale, this.scale * zoomFactor));
+                        
+                        if (newScale !== this.scale) {
+                            // Zoom towards center point
+                            const scaleChange = newScale / this.scale;
+                            this.panX = centerX - (centerX - this.panX) * scaleChange;
+                            this.panY = centerY - (centerY - this.panY) * scaleChange;
+                            this.scale = newScale;
+                            
+                            this.redraw();
+                        }
+                    }
+                    
+                    this.lastTouchDistance = currentDistance;
+                }
+            }
+            
+            handleTouchEnd(e) {
+                e.preventDefault();
+                
+                const remainingTouches = Array.from(e.touches);
+                
+                if (this.touches.length === 1 && remainingTouches.length === 0) {
+                    // Single touch ended - check if it was a tap for dot placement
+                    const touch = this.touches[0];
+                    
+                    // Only place dot if we weren't dragging much (detect tap vs drag)
+                    if (!this.isDragging || this.getTouchDistance(
+                        { clientX: touch.clientX, clientY: touch.clientY },
+                        { clientX: this.lastMouseX, clientY: this.lastMouseY }
+                    ) < 15) {
+                        // Simulate a click for dot placement
+                        const syntheticEvent = {
+                            clientX: touch.clientX,
+                            clientY: touch.clientY
+                        };
+                        this.placeDot(syntheticEvent);
+                    }
+                }
+                
+                this.isTouching = remainingTouches.length > 0;
+                this.isDragging = false;
+                this.touches = remainingTouches;
+                
+                if (remainingTouches.length === 0) {
+                    this.lastTouchDistance = 0;
+                }
+            }
+            
+            getTouchDistance(touch1, touch2) {
+                const dx = touch1.clientX - touch2.clientX;
+                const dy = touch1.clientY - touch2.clientY;
+                return Math.sqrt(dx * dx + dy * dy);
             }
             
             redraw() {
