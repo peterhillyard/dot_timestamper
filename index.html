@@ -294,6 +294,11 @@
                 <button class="save-btn" id="saveBtn">Save Data</button>
             </div>
             <div style="margin-bottom: 10px;">
+                <label for="floorNumberInput">Floor Number:</label>
+                <input type="text" id="floorNumberInput" placeholder="Enter floor number..." 
+                       style="width: 100%; padding: 5px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px;">
+            </div>
+            <div style="margin-bottom: 10px;">
                 <label for="assetIdsInput">Asset IDs:</label>
                 <textarea id="assetIdsInput" placeholder="Enter asset IDs, one per line or comma-separated..." 
                          style="width: 100%; height: 60px; padding: 5px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; resize: vertical;"></textarea>
@@ -536,6 +541,8 @@
             }
             
             saveData() {
+                // Get floor number
+                const floorNumber = document.getElementById('floorNumberInput').value.trim();
                 // Get asset IDs from textarea
                 const assetIdsText = document.getElementById('assetIdsInput').value.trim();
                 let assetIds = [];
@@ -548,11 +555,23 @@
                         .filter(id => id.length > 0);
                 }
                 
+                // Validate required fields
+                if (!floorNumber) {
+                    alert('Error: Please enter a floor number before saving.');
+                    return;
+                }
+                
+                if (assetIds.length === 0) {
+                    alert('Error: Please enter at least one asset ID before saving.');
+                    return;
+                }
+                
                 // Prepare data object
                 const data = {
-                    assetIds: assetIds,
+                    ble_tx_ids: assetIds,
                     dots: this.dots.map(dot => ({
-                        timestamp: dot.timestamp,
+                        datetime: dot.timestamp,
+                        floor: floorNumber,
                         coordinate_pixels: [dot.imageX, dot.imageY]
                     })),
                 };
@@ -564,7 +583,21 @@
                 
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `image-data-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+                // Get first and last timestamps from dots
+                const firstDot = this.dots.reduce((earliest, dot) => 
+                    new Date(dot.timestamp) < new Date(earliest.timestamp) ? dot : earliest
+                );
+                const lastDot = this.dots.reduce((latest, dot) => 
+                    new Date(dot.timestamp) > new Date(latest.timestamp) ? dot : latest
+                );
+                
+                // Format timestamps as YYYYMMDDTHHMMSSZ
+                const formatTimestamp = (isoString) => {
+                    return isoString.replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+                };
+                
+                const filename = `${formatTimestamp(firstDot.timestamp)}_to_${formatTimestamp(lastDot.timestamp)}.json`;
+                a.download = filename;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
