@@ -540,7 +540,7 @@
                 }
             }
             
-            saveData() {
+            async saveData() {
                 // Get floor number
                 const floorNumber = document.getElementById('floorNumberInput').value.trim();
                 // Get asset IDs from textarea
@@ -566,6 +566,11 @@
                     return;
                 }
                 
+                if (!this.image) {
+                    alert('Error: No image loaded.');
+                    return;
+                }
+                
                 // Prepare data object
                 const data = {
                     ble_tx_ids: assetIds,
@@ -576,13 +581,6 @@
                     })),
                 };
                 
-                // Create and download JSON file
-                const jsonString = JSON.stringify(data, null, 2);
-                const blob = new Blob([jsonString], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                
-                const a = document.createElement('a');
-                a.href = url;
                 // Get first and last timestamps from dots
                 const firstDot = this.dots.reduce((earliest, dot) => 
                     new Date(dot.timestamp) < new Date(earliest.timestamp) ? dot : earliest
@@ -596,12 +594,88 @@
                     return isoString.replace(/[-:]/g, '').replace(/\.\d{3}/, '');
                 };
                 
-                const filename = `${formatTimestamp(firstDot.timestamp)}_to_${formatTimestamp(lastDot.timestamp)}.json`;
-                a.download = filename;
+                const baseFilename = `${formatTimestamp(firstDot.timestamp)}_to_${formatTimestamp(lastDot.timestamp)}`;
+                
+                // Dynamically load JSZip
+                if (typeof JSZip === 'undefined') {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+                    document.head.appendChild(script);
+                    await new Promise((resolve, reject) => {
+                        script.onload = resolve;
+                        script.onerror = reject;
+                    });
+                }
+                
+                const zip = new JSZip();
+                
+                // 1. Add JSON data
+                const jsonString = JSON.stringify(data, null, 2);
+                zip.file(`${baseFilename}.json`, jsonString);
+                
+                // 2. Add original image
+                const originalImageBlob = await this.getOriginalImageBlob();
+                zip.file(`${baseFilename}.jpg`, originalImageBlob);
+                
+                // 3. Add image with dots overlay
+                const imageWithDotsBlob = await this.createImageWithDots();
+                zip.file(`${baseFilename}_with_dots.jpg`, imageWithDotsBlob);
+                
+                // Generate and download zip
+                const zipBlob = await zip.generateAsync({ type: 'blob' });
+                const url = URL.createObjectURL(zipBlob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${baseFilename}.zip`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
+            }
+            
+            async getOriginalImageBlob() {
+                // Get the original image as a blob
+                return new Promise((resolve, reject) => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = this.image.width;
+                    canvas.height = this.image.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(this.image, 0, 0);
+                    canvas.toBlob((blob) => {
+                        if (blob) resolve(blob);
+                        else reject(new Error('Failed to create image blob'));
+                    }, 'image/jpeg', 0.95);
+                });
+            }
+            
+            async createImageWithDots() {
+                // Create a new canvas with the image and dots
+                return new Promise((resolve, reject) => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = this.image.width;
+                    canvas.height = this.image.height;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Draw the original image
+                    ctx.drawImage(this.image, 0, 0);
+                    
+                    // Draw all dots at their original image coordinates
+                    this.dots.forEach(dot => {
+                        ctx.beginPath();
+                        ctx.arc(dot.imageX, dot.imageY, this.dotRadius, 0, 2 * Math.PI);
+                        ctx.fillStyle = this.dotColor;
+                        ctx.fill();
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    });
+                    
+                    canvas.toBlob((blob) => {
+                        if (blob) resolve(blob);
+                        else reject(new Error('Failed to create image with dots blob'));
+                    }, 'image/jpeg', 0.95);
+                });
             }
             
             handleMouseMove(e) {
