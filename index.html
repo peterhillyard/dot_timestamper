@@ -576,7 +576,7 @@
                     ble_tx_ids: assetIds,
                     dots: this.dots.map(dot => ({
                         datetime: dot.timestamp,
-                        floor: floorNumber,
+                        floor: parseInt(floorNumber, 10),
                         coordinate_pixels: [dot.imageX, dot.imageY]
                     })),
                 };
