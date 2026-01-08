@@ -460,6 +460,9 @@
                         this.image = img;
                         this.resetView();
                         this.showCanvas();
+                        
+                        // Clear input fields when new image is loaded
+                        document.getElementById('floorNumberInput').value = '';
                     };
                     img.src = e.target.result;
                 };
