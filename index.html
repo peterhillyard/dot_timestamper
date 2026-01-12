@@ -580,7 +580,8 @@
                     dots: this.dots.map(dot => ({
                         datetime: dot.timestamp,
                         floor: parseInt(floorNumber, 10),
-                        coordinate_pixels: [dot.imageX, dot.imageY]
+                        coordinate_pixels: [dot.imageX, dot.imageY],
+                        notes: dot.notes || ''
                     })),
                 };
                 
@@ -758,7 +759,8 @@
                         imageY: imageY,
                         canvasX: canvasX,
                         canvasY: canvasY,
-                        timestamp: timestamp
+                        timestamp: timestamp,
+                        notes: '' // Initialize empty notes field
                     };
                     
                     this.dots.push(dot);
@@ -769,6 +771,13 @@
                     // Start or restart the timer
                     this.startTimer();
                     this.updateElapsedTimeDisplay();
+                }
+            }
+            
+            updateDotNotes(dotId, notes) {
+                const dot = this.dots.find(d => d.id === dotId);
+                if (dot) {
+                    dot.notes = notes;
                 }
             }
             
@@ -815,6 +824,10 @@
                             <button class="delete-btn" onclick="viewer.deleteDot(${dot.id})">×</button>
                             <div class="coordinates">X: ${dot.imageX}, Y: ${dot.imageY}</div>
                             <div class="timestamp">${dot.timestamp}</div>
+                            <textarea 
+                                placeholder="Add notes..."
+                                oninput="viewer.updateDotNotes(${dot.id}, this.value)"
+                                style="width: 100%; margin-top: 8px; padding: 5px; border: 1px solid #ddd; border-radius: 3px; font-family: Arial, sans-serif; font-size: 11px; resize: vertical; min-height: 40px;">${dot.notes || ''}</textarea>
                         </div>
                     `;
                 });
