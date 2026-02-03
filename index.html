@@ -406,6 +406,105 @@
             border-radius: 4px;
             cursor: pointer;
         }
+        
+        /* Save info modal */
+        .save-info-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 3000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .save-info-modal.active {
+            display: flex;
+        }
+        
+        .save-info-content {
+            background-color: white;
+            border-radius: 8px;
+            padding: 30px;
+            max-width: 400px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .save-info-content h2 {
+            margin: 0 0 20px 0;
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        
+        .save-info-field {
+            margin-bottom: 15px;
+        }
+        
+        .save-info-field label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .save-info-field input,
+        .save-info-field select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        .save-info-field input:focus,
+        .save-info-field select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+        }
+        
+        .save-info-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+        }
+        
+        .save-info-buttons button {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .save-info-buttons .confirm-btn {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .save-info-buttons .confirm-btn:hover {
+            background-color: #218838;
+        }
+        
+        .save-info-buttons .cancel-btn {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .save-info-buttons .cancel-btn:hover {
+            background-color: #5a6268;
+        }
     </style>
 </head>
 <body>
@@ -479,6 +578,33 @@
             </div>
             <div class="preview-image-container">
                 <img id="previewImage" class="preview-image" alt="Preview" />
+            </div>
+        </div>
+    </div>
+    
+    <!-- Save Info Modal -->
+    <div class="save-info-modal" id="saveInfoModal">
+        <div class="save-info-content">
+            <h2>Save Experiment Data</h2>
+            <div class="save-info-field">
+                <label for="userNameInput">Your Name:</label>
+                <input type="text" id="userNameInput" placeholder="Enter your name" />
+            </div>
+            <div class="save-info-field">
+                <label for="orgInput">Organization:</label>
+                <input type="text" id="orgInput" placeholder="Enter organization" />
+            </div>
+            <div class="save-info-field">
+                <label for="buildingInput">Building:</label>
+                <input type="text" id="buildingInput" placeholder="Enter building name" />
+            </div>
+            <div class="save-info-field">
+                <label for="experimentTypeInput">Experiment Type:</label>
+                <input type="text" id="experimentTypeInput" placeholder="Enter experiment type" />
+            </div>
+            <div class="save-info-buttons">
+                <button class="confirm-btn" id="confirmSaveBtn">Save</button>
+                <button class="cancel-btn" id="cancelSaveBtn">Cancel</button>
             </div>
         </div>
     </div>
@@ -725,6 +851,87 @@
                 }
             }
             
+            showSaveInfoDialog() {
+                return new Promise((resolve) => {
+                    const modal = document.getElementById('saveInfoModal');
+                    const userNameInput = document.getElementById('userNameInput');
+                    const orgInput = document.getElementById('orgInput');
+                    const buildingInput = document.getElementById('buildingInput');
+                    const experimentTypeInput = document.getElementById('experimentTypeInput');
+                    const confirmBtn = document.getElementById('confirmSaveBtn');
+                    const cancelBtn = document.getElementById('cancelSaveBtn');
+                    
+                    // Clear previous inputs
+                    userNameInput.value = '';
+                    orgInput.value = '';
+                    buildingInput.value = '';
+                    experimentTypeInput.value = '';
+                    
+                    // Show modal
+                    modal.classList.add('active');
+                    userNameInput.focus();
+                    
+                    const handleConfirm = () => {
+                        const userName = userNameInput.value.trim();
+                        const org = orgInput.value.trim();
+                        const building = buildingInput.value.trim();
+                        const experimentType = experimentTypeInput.value.trim();
+                        
+                        if (!userName) {
+                            alert('Please enter your name.');
+                            return;
+                        }
+                        if (!org) {
+                            alert('Please enter an organization.');
+                            return;
+                        }
+                        if (!building) {
+                            alert('Please enter a building.');
+                            return;
+                        }
+                        if (!experimentType) {
+                            alert('Please enter an experiment type.');
+                            return;
+                        }
+                        
+                        // Clean up listeners
+                        confirmBtn.removeEventListener('click', handleConfirm);
+                        cancelBtn.removeEventListener('click', handleCancel);
+                        document.removeEventListener('keydown', handleKeyDown);
+                        
+                        modal.classList.remove('active');
+                        resolve({
+                            userName: userName,
+                            org: org,
+                            building: building,
+                            experimentType: experimentType
+                        });
+                    };
+                    
+                    const handleCancel = () => {
+                        // Clean up listeners
+                        confirmBtn.removeEventListener('click', handleConfirm);
+                        cancelBtn.removeEventListener('click', handleCancel);
+                        document.removeEventListener('keydown', handleKeyDown);
+                        
+                        modal.classList.remove('active');
+                        resolve(null);
+                    };
+                    
+                    const handleKeyDown = (e) => {
+                        if (e.key === 'Enter') {
+                            handleConfirm();
+                        } else if (e.key === 'Escape') {
+                            handleCancel();
+                        }
+                    };
+                    
+                    confirmBtn.addEventListener('click', handleConfirm);
+                    cancelBtn.addEventListener('click', handleCancel);
+                    document.addEventListener('keydown', handleKeyDown);
+                });
+            }
+            
             async saveData() {
                 // Get floor number
                 const floorNumber = document.getElementById('floorNumberInput').value.trim();
@@ -761,6 +968,13 @@
                     return;
                 }
                 
+                // Show dialog to collect save info
+                const saveInfo = await this.showSaveInfoDialog();
+                if (!saveInfo) {
+                    // User cancelled
+                    return;
+                }
+                
                 // Prepare data object
                 const data = {
                     ble_tx_ids: assetIds,
@@ -780,12 +994,13 @@
                     new Date(dot.timestamp) > new Date(latest.timestamp) ? dot : latest
                 );
                 
-                // Format timestamps as YYYYMMDDTHHMMSSZ
+                // Format timestamps as YYYYMMDDTHHMMSS (without Z)
                 const formatTimestamp = (isoString) => {
-                    return isoString.replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+                    return isoString.replace(/[-:]/g, '').replace(/\.\d{3}Z?/, '');
                 };
                 
-                const baseFilename = `${formatTimestamp(firstDot.timestamp)}_to_${formatTimestamp(lastDot.timestamp)}`;
+                // Create filename with new format
+                const baseFilename = `${formatTimestamp(firstDot.timestamp)}_${formatTimestamp(lastDot.timestamp)}_${saveInfo.org}_${saveInfo.building}_floor${floorNumber}_${saveInfo.userName}_${saveInfo.experimentType}`;
                 
                 // Dynamically load JSZip
                 if (typeof JSZip === 'undefined') {
